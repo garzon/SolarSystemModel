@@ -1,0 +1,46 @@
+<!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Transitional//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-transitional.dtd">
+<html xmlns="http://www.w3.org/1999/xhtml">
+<head>
+<meta http-equiv="Content-Type" content="text/html; charset=utf-8" />
+<script src="jquery.min.js"></script>
+<title>Garzon's</title>
+<style type="text/css">
+
+a:link {color: #000000}    
+a:visited {color: #000000} 
+a:active {color: #000000}  
+a:hover {color: #43d3b7;text-decoration: underline}   
+
+a{
+	font-family: 微软雅黑;
+	font-weight: bold;
+	text-decoration: none;
+}
+
+#menu{
+	position: absolute;
+	border: 2px solid;
+	height: 80px;
+	width: 55px;
+	border-radius: 7px;
+	font-size: 20px;
+	left: 20px;
+	top: 20px;
+}
+
+
+</style>
+</head>
+<body>
+
+	<div id="menu">
+		&nbsp;<a onclick="javascript:zoom*=2;" href="#">+</a>/<a onclick="javascript:zoom*=0.5;" href="#">-</a>
+		<hr />
+		&nbsp;<a onclick="javascript:if(dt<10000){dt*=2;trTimeOut*=2;}" href="#">&gt;</a>/<a onclick="javascript:if(dt>16){dt*=0.5;trTimeOut*=0.5;}" href="#">&lt;</a>
+	</div>
+
+</body>
+
+<script src="model.js"></script>
+
+</html>

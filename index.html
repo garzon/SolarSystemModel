@@ -164,8 +164,9 @@ body {
 <body>
     <canvas id="background-canvas"></canvas>
     <canvas id="trace-canvas"></canvas>
+    <canvas id="planet-canvas"></canvas>
 
-	<div id="control-panel">
+    <div id="control-panel">
         <fieldset>
             <legend>View</legend>
             <div class="control-group">
@@ -182,8 +183,11 @@ body {
                 </select>
             </div>
              <div class="control-group">
-                <label for="clear-trace">Trace</label>
-                <a id="clear-trace" href="#">Clear</a>
+                <label>Trace</label>
+                <div>
+                    <a id="toggle-trace" href="#">Hide</a>
+                    <a id="clear-trace" href="#">Clear</a>
+                </div>
             </div>
         </fieldset>
         <fieldset>

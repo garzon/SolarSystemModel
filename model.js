@@ -28,6 +28,8 @@ const config = {
     updateList: [],
     traceCanvas: null,
     traceCtx: null,
+    planetCanvas: null,
+    planetCtx: null,
     isRunning: true // Simulation is running by default
 };
 
@@ -79,87 +81,32 @@ function cmul(c,v){
 
 function Obj(name, m, radius, color, rx, ry, vx, vy) {
     this.name = name;
-    this.classid = "myObj" + config.updateList.length.toString();
-    var objContainer = document.createElement('div');
-    objContainer.className = 'celestial-body-container';
-
-    var objElement = document.createElement('div');
-    objElement.className = 'celestial-body ' + this.classid;
-    if (name === 'Sun') {
-        objElement.classList.add('sun-glow');
-    }
-    objElement.style.width = (radius * 2) + 'px';
-    objElement.style.height = (radius * 2) + 'px';
-    objElement.style.backgroundColor = color;
-
-    var nameElement = document.createElement('div');
-    nameElement.className = 'planet-name';
-    nameElement.textContent = name;
-
-    objContainer.appendChild(objElement);
-    objContainer.appendChild(nameElement);
-    document.body.appendChild(objContainer);
-
     this.m = m;
-    this.element = objContainer;
     this.radius = radius;
+    this.color = color;
     this.r = new Vector(rx, ry);
     this.v = new Vector(vx, vy);
+    this.oldr = this.r.clone(); // Initialize oldr
     config.updateList.push(this);
-    setPos(this);
 }
 
 // Main -----------------------------------------
 
-function setPos(obj) {
-    obj.oldr = obj.r.clone();
-    var p = obj.r.clone();
-
-    if (config.isFocus) {
-        config.camera = config.updateList[config.trId].r;
-    }
-
-    p = sub(p, config.camera);
-    p = cmul(config.zoom, p);
-    if (config.scenter) {
-        p = add(p, config.scenter);
-    }
-
-    var shouldTrace = false;
-    if (config.isFocus) {
-        shouldTrace = true;
-    } else if (config.isTraced && obj === config.updateList[config.trId]) {
-        config.trCounter++;
-        if (config.trCounter >= config.trTimeOut) {
-            shouldTrace = true;
-            config.trCounter = 0;
-        }
-    }
-
-    if (shouldTrace) {
-        config.traceCtx.fillStyle = 'yellow';
-        config.traceCtx.fillRect(p.x, p.y, 1, 1);
-    }
-
-    obj.element.style.left = p.x.toString() + "px";
-    obj.element.style.top = p.y.toString() + "px";
-}
-
 function updatePos(obj) {
-    var acceleration = new Vector(0, 0);
+    let acceleration = new Vector(0, 0);
 
     if ((!config.isIgnoreOthers) || (obj !== config.updateList[0])) {
-        for (var j = 0; j < config.prt_num; j++) {
+        for (let j = 0; j < config.prt_num; j++) {
             if (config.isIgnoreOthers && j > 0) {
                 break;
             }
 
-            var otherObj = config.updateList[j];
+            const otherObj = config.updateList[j];
 
             if (otherObj !== obj) {
-                var distanceVector = sub(otherObj.oldr, obj.r);
-                var distance = distanceVector.abs() + config.min_dist;
-                var force = cmul(config.G * otherObj.m / (distance * distance * distance), distanceVector);
+                const distanceVector = sub(otherObj.oldr, obj.r);
+                const distance = distanceVector.abs() + config.min_dist;
+                const force = cmul(config.G * otherObj.m / (distance * distance * distance), distanceVector);
                 acceleration = add(acceleration, force);
             }
         }
@@ -175,23 +122,24 @@ function updatePos(obj) {
 }
 
 function movementManager() {
-    var obj;
     if (config.stopMoving) return;
-    for (var i in config.updateList) {
-        obj = config.updateList[i];
+
+    // First, update all positions based on old positions
+    for (const obj of config.updateList) {
         updatePos(obj);
     }
-    for (var i in config.updateList) {
-        obj = config.updateList[i];
-        setPos(obj);
+
+    // Then, update old positions for the next iteration
+    for (const obj of config.updateList) {
+        obj.oldr = obj.r.clone();
     }
 
-    var infoPanel = document.getElementById('info-panel');
+    const infoPanel = document.getElementById('info-panel');
     if (config.isFocus) {
-        var focusedPlanet = config.updateList[config.trId];
-        var sun = config.updateList[0];
-        var distance = sub(focusedPlanet.r, sun.r).abs() / config.au;
-        var velocity = focusedPlanet.v.abs();
+        const focusedPlanet = config.updateList[config.trId];
+        const sun = config.updateList[0];
+        const distance = sub(focusedPlanet.r, sun.r).abs() / config.au;
+        const velocity = focusedPlanet.v.abs();
 
         document.getElementById('info-planet-name').textContent = focusedPlanet.name;
         document.getElementById('info-distance').textContent = distance.toFixed(2) + ' AU';
@@ -205,19 +153,62 @@ function movementManager() {
     document.title = "Garzon's | Now T=" + (config.timer / 60 / 60 / 24).toString() + "d";
 }
 
+function draw() {
+    config.planetCtx.clearRect(0, 0, config.planetCanvas.width, config.planetCanvas.height);
+
+    if (config.isFocus) {
+        config.camera = config.updateList[config.trId].r;
+    }
+
+    for (const obj of config.updateList) {
+        let p = obj.r.clone();
+        p = sub(p, config.camera);
+        p = cmul(config.zoom, p);
+        if (config.scenter) {
+            p = add(p, config.scenter);
+        }
+
+        // Draw planet
+        config.planetCtx.beginPath();
+        config.planetCtx.arc(p.x, p.y, obj.radius, 0, 2 * Math.PI);
+        config.planetCtx.fillStyle = obj.color;
+        config.planetCtx.fill();
+
+        // Draw name
+        config.planetCtx.fillStyle = 'white';
+        config.planetCtx.font = '12px Arial';
+        config.planetCtx.textAlign = 'center';
+        config.planetCtx.fillText(obj.name, p.x, p.y + obj.radius + 12);
+
+        // Corrected trace logic
+        if (config.isTraced && obj.name !== 'Sun') {
+            config.traceCtx.fillStyle = obj.color;
+            config.traceCtx.fillRect(p.x, p.y, 1, 1);
+        }
+    }
+}
+
 function random(minint,maxint){
 	maxint++;
 	return Math.floor(Math.random()*(maxint-minint))+minint;
 }
 
+let animationFrameId = null;
 function mainLoop() {
-    movementManager();
-    requestAnimationFrame(mainLoop);
+    if (config.isRunning) {
+        movementManager();
+        draw();
+        animationFrameId = requestAnimationFrame(mainLoop);
+    } else {
+        cancelAnimationFrame(animationFrameId);
+    }
 }
 
 function init() {
     config.traceCanvas = document.getElementById('trace-canvas');
     config.traceCtx = config.traceCanvas.getContext('2d');
+    config.planetCanvas = document.getElementById('planet-canvas');
+    config.planetCtx = config.planetCanvas.getContext('2d');
 
     // Create planets from data
     planetData.forEach(data => {
@@ -225,9 +216,9 @@ function init() {
     });
 
     // Populate focus dropdown
-    var focusSelect = document.getElementById('focus-select');
+    const focusSelect = document.getElementById('focus-select');
     config.updateList.forEach((planet, i) => {
-        var option = document.createElement('option');
+        const option = document.createElement('option');
         option.value = i;
         option.text = planet.name;
         focusSelect.appendChild(option);
@@ -239,8 +230,17 @@ function init() {
     document.getElementById('speed-up').addEventListener('click', () => { if (config.dt < 10000) { config.dt *= 2; config.trTimeOut *= 2; } });
     document.getElementById('speed-down').addEventListener('click', () => { if (config.dt > 16) { config.dt *= 0.5; config.trTimeOut *= 0.5; } });
     document.getElementById('clear-trace').addEventListener('click', clearTrace);
+    
+    const toggleTraceButton = document.getElementById('toggle-trace');
+    if (toggleTraceButton) {
+        toggleTraceButton.addEventListener('click', function() {
+            config.isTraced = !config.isTraced;
+            this.textContent = config.isTraced ? 'Hide' : 'Show';
+        });
+    }
+
     focusSelect.addEventListener('change', function () {
-        var selectedIndex = parseInt(this.value);
+        const selectedIndex = parseInt(this.value);
         if (selectedIndex === -1) {
             config.isFocus = false;
         } else {
@@ -250,19 +250,29 @@ function init() {
         clearTrace();
     });
 
+    const pauseButton = document.getElementById('pause-button');
+    pauseButton.addEventListener('click', function() {
+        config.isRunning = !config.isRunning;
+        this.textContent = config.isRunning ? 'Pause' : 'Resume';
+        if (config.isRunning) {
+            mainLoop();
+        }
+    });
+
     window.onresize = function(){
         config.browser_width  = parseFloat(window.innerWidth);
         config.browser_height = parseFloat(window.innerHeight);
         config.traceCanvas.width = config.browser_width;
         config.traceCanvas.height = config.browser_height;
+        config.planetCanvas.width = config.browser_width;
+        config.planetCanvas.height = config.browser_height;
         config.browser_width -= config.width_padding;
         config.browser_height -= config.height_padding;
         config.scenter=new Vector(config.browser_width/2.0,config.browser_height/2.0);
     }
 
     window.onresize(); // Initial setup
-    if(config.isTraced) config.trId=random(1,config.prt_num-1);
-	  if(!config.isFocus) config.camera=new Vector(0,0);
+    if(!config.isFocus) config.camera=new Vector(0,0);
     mainLoop();
 }
 
@@ -271,3 +281,44 @@ function clearTrace() {
 }
 
 document.addEventListener('DOMContentLoaded', init);
+
+// Starry background
+const backgroundCanvas = document.getElementById('background-canvas');
+const backgroundCtx = backgroundCanvas.getContext('2d');
+let stars = [];
+
+function setupBackground() {
+    backgroundCanvas.width = window.innerWidth;
+    backgroundCanvas.height = window.innerHeight;
+    stars = [];
+    for (let i = 0; i < 500; i++) {
+        stars.push({
+            x: Math.random() * backgroundCanvas.width,
+            y: Math.random() * backgroundCanvas.height,
+            radius: Math.random() * 1.5,
+            alpha: Math.random()
+        });
+    }
+}
+
+function drawBackground() {
+    backgroundCtx.clearRect(0, 0, backgroundCanvas.width, backgroundCanvas.height);
+    backgroundCtx.fillStyle = '#000';
+    backgroundCtx.fillRect(0, 0, backgroundCanvas.width, backgroundCanvas.height);
+
+    stars.forEach(star => {
+        backgroundCtx.beginPath();
+        backgroundCtx.arc(star.x, star.y, star.radius, 0, Math.PI * 2);
+        backgroundCtx.fillStyle = `rgba(255, 255, 255, ${star.alpha})`;
+        backgroundCtx.fill();
+    });
+}
+
+document.addEventListener('DOMContentLoaded', () => {
+    setupBackground();
+    drawBackground();
+    window.addEventListener('resize', () => {
+        setupBackground();
+        drawBackground();
+    });
+});

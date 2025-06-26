@@ -86,32 +86,34 @@ function Obj(name, m, radius, color, rx, ry, vx, vy) {
     this.color = color;
     this.r = new Vector(rx, ry);
     this.v = new Vector(vx, vy);
-    this.oldr = this.r.clone(); // Initialize oldr
     config.updateList.push(this);
 }
 
 // Main -----------------------------------------
 
-function updatePos(obj) {
-    let acceleration = new Vector(0, 0);
+function calculateTotalEnergy() {
+    let kineticEnergy = 0;
+    let potentialEnergy = 0;
 
-    if ((!config.isIgnoreOthers) || (obj !== config.updateList[0])) {
-        for (let j = 0; j < config.prt_num; j++) {
-            if (config.isIgnoreOthers && j > 0) {
-                break;
-            }
+    for (const obj of config.updateList) {
+        kineticEnergy += 0.5 * obj.m * vmul(obj.v, obj.v);
+    }
 
-            const otherObj = config.updateList[j];
-
-            if (otherObj !== obj) {
-                const distanceVector = sub(otherObj.oldr, obj.r);
-                const distance = distanceVector.abs() + config.min_dist;
-                const force = cmul(config.G * otherObj.m / (distance * distance * distance), distanceVector);
-                acceleration = add(acceleration, force);
+    for (let i = 0; i < config.prt_num; i++) {
+        for (let j = i + 1; j < config.prt_num; j++) {
+            const obj1 = config.updateList[i];
+            const obj2 = config.updateList[j];
+            const distance = sub(obj1.r, obj2.r).abs();
+            if (distance > 0) {
+                potentialEnergy -= config.G * obj1.m * obj2.m / distance;
             }
         }
     }
+    return kineticEnergy + potentialEnergy;
+}
 
+function updatePos(obj, accelerations) {
+    const acceleration = accelerations[config.updateList.indexOf(obj)];
     obj.v = add(obj.v, cmul(config.dt, acceleration));
 
     if (config.isBounded) {
@@ -124,14 +126,25 @@ function updatePos(obj) {
 function movementManager() {
     if (config.stopMoving) return;
 
-    // First, update all positions based on old positions
-    for (const obj of config.updateList) {
-        updatePos(obj);
-    }
+    // Calculate accelerations based on current positions
+    const accelerations = config.updateList.map(obj => {
+        let acceleration = new Vector(0, 0);
+        if ((!config.isIgnoreOthers) || (obj !== config.updateList[0])) {
+            for (const otherObj of config.updateList) {
+                if (otherObj !== obj) {
+                    const distanceVector = sub(otherObj.r, obj.r);
+                    const distance = distanceVector.abs() + config.min_dist;
+                    const force = cmul(config.G * otherObj.m / (distance * distance * distance), distanceVector);
+                    acceleration = add(acceleration, force);
+                }
+            }
+        }
+        return acceleration;
+    });
 
-    // Then, update old positions for the next iteration
+    // Update all positions based on the calculated accelerations
     for (const obj of config.updateList) {
-        obj.oldr = obj.r.clone();
+        updatePos(obj, accelerations);
     }
 
     const infoPanel = document.getElementById('info-panel');
@@ -142,12 +155,15 @@ function movementManager() {
         const velocity = focusedPlanet.v.abs();
 
         document.getElementById('info-planet-name').textContent = focusedPlanet.name;
-        document.getElementById('info-distance').textContent = distance.toFixed(2) + ' AU';
+        document.getElementById('info-distance').textContent = distance.toFixed(8) + ' AU';
         document.getElementById('info-velocity').textContent = velocity.toFixed(2) + ' m/s';
         infoPanel.classList.add('visible');
     } else {
         infoPanel.classList.remove('visible');
     }
+
+    const totalEnergy = calculateTotalEnergy();
+    document.getElementById('total-energy').textContent = totalEnergy.toExponential(8);
 
     config.timer += config.dt;
     document.title = "Garzon's | Now T=" + (config.timer / 60 / 60 / 24).toString() + "d";

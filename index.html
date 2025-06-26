@@ -67,7 +67,7 @@ body {
     margin-right: 10px;
 }
 
-#control-panel a, #control-panel select {
+#control-panel a, #control-panel select, #control-panel .value-display {
     color: #fff;
     background-color: rgba(255, 255, 255, 0.1);
     border: 1px solid rgba(255, 255, 255, 0.2);
@@ -202,6 +202,10 @@ body {
                 <div class="control-group">
                     <label for="pause-button">State</label>
                     <a id="pause-button" href="#">Pause</a>
+                </div>
+                <div class="control-group">
+                    <label>Total Energy</label>
+                    <span id="total-energy" class="value-display">0</span>
                 </div>
         </fieldset>
     </div>
